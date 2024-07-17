@@ -1,0 +1,247 @@
+import javax.swing.*; import java.awt.*;
+import java.awt.event.ActionEvent; import java.awt.event.ActionListener; import java.text.SimpleDateFormat; import java.util.Date;
+import java.util.Vector;
+
+
+class FinanceManager {
+private java.util.List<Transaction> ledger;
+private java.util.Map<String, Double> categories; private final String ledgerFilePath = "ledger.txt";
+
+public FinanceManager() {
+ledger = new java.util.ArrayList<>(); categories = new java.util.HashMap<>(); loadLedgerFromFile();
+}
+
+
+private void loadLedgerFromFile() {
+try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(ledgerFilePath))) {
+String line;
+while ((line = reader.readLine()) != null) { String[] parts = line.split(",");
+if (parts.length == 5) {
+ 
+String description = parts[0];
+double amount = Double.parseDouble(parts[1]); String category = parts[2];
+Date	date	=	new	SimpleDateFormat("yyyy-MM- dd").parse(parts[3].trim());
+double balance = Double.parseDouble(parts[4].trim()); Transaction transaction = new Transaction(description, amount,
+date, balance,category);
+ledger.add(transaction); updateCategoryTotal(category, amount);
+}
+}
+} catch (java.io.IOException | java.text.ParseException e) { System.err.println("Error loading ledger data: " + e.getMessage());
+}
+}
+
+
+private void updateCategoryTotal(String category, double amount) {
+// Convert category to lowercase for case-insensitive comparison category = category.toLowerCase();
+categories.put(category,	categories.getOrDefault(category,	0.0)	+ amount);
+}
+
+
+private void saveLedgerToFile() {
+try (java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.FileWriter(ledgerFilePath))) {
+// double balance = 0.0;
+for (Transaction transaction : ledger) { double balance = transaction.getBalance();
+ 
+String	line	=	transaction.getDescription()	+	","	+ transaction.getAmount() + "," +
+getCategoryForTransaction(transaction.getAmount()) + "," + new	SimpleDateFormat("yyyy-MM-
+dd").format(transaction.getDate()) + "," +
+transaction.getBalance(); writer.write(line + "\n");
+}
+} catch (java.io.IOException e) {
+System.err.println("Error saving ledger data: " + e.getMessage());
+}
+}
+
+
+public void addTransaction(String description, double amount, String category, Date date, boolean isIncome) {
+double balance; if (isIncome) {
+balance = ledger.isEmpty() ? amount : ledger.get(ledger.size() - 1).getBalance() + amount;
+} else {
+balance = ledger.isEmpty() ? -amount : ledger.get(ledger.size() - 1).getBalance() - amount;
+}
+
+
+// Convert category to lowercase for case-insensitive comparison category = category.toLowerCase();
+Transaction newTransaction = new Transaction(description, amount, date, balance,category);
+ledger.add(newTransaction); updateCategoryTotal(category, amount);
+ 
+saveLedgerToFile();
+}
+
+
+public double calculateTotal() { double total = 0.0;
+for (Transaction transaction : ledger) { total += transaction.getAmount();
+}
+return total;
+}
+
+
+public void displayLedger() {
+Vector<String> columnNames = new Vector<>(); columnNames.add("Date"); columnNames.add("Description"); columnNames.add("Amount"); columnNames.add("Balance");
+
+Vector<Vector<Object>> data = new Vector<>(); double balance = 0.0;
+for (Transaction transaction : ledger) { Vector<Object> row = new Vector<>(); row.add(transaction.getDate()); row.add(transaction.getDescription()); row.add(transaction.getAmount()); balance = transaction.getBalance(); row.add(balance);
+data.add(row);
+}
+ 
+
+JTable ledgerTable = new JTable(data, columnNames); JScrollPane scrollPane = new JScrollPane(ledgerTable);
+
+
+JFrame ledgerFrame = new JFrame("Ledger"); ledgerFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); ledgerFrame.getContentPane().add(scrollPane, BorderLayout.CENTER); ledgerFrame.setSize(800, 400);
+ledgerFrame.setVisible(true);
+}
+
+
+public void generateCategoryReport() { Vector<String> columnNames = new Vector<>(); columnNames.add("Category"); columnNames.add("Total Amount");
+
+Vector<Vector<Object>> data = new Vector<>();
+for (java.util.Map.Entry<String, Double> entry : categories.entrySet()) { Vector<Object> row = new Vector<>();
+row.add(entry.getKey()); row.add(entry.getValue()); data.add(row);
+}
+
+
+JTable reportTable = new JTable(data, columnNames); JScrollPane scrollPane = new JScrollPane(reportTable);
+
+JFrame reportFrame = new JFrame("Category-wise Report"); reportFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+ 
+reportFrame.getContentPane().add(scrollPane, BorderLayout.CENTER); reportFrame.setSize(400, 300);
+reportFrame.setVisible(true);
+}
+
+
+public String getCategoryForTransaction(double amount) { for(Transaction transaction : ledger){
+if (transaction.getAmount()==amount){ return transaction.getCategory();
+}
+}
+return "Uncategorized";
+}
+
+
+
+
+}
+
+
+class Transaction {
+private String description; private double amount; private Date date;
+private double balance; private String category;
+
+public Transaction(String description, double amount, Date date, double balance,String category) {
+this.description = description; this.amount = amount; this.date = date;
+ 
+this.balance = balance; this.category = category;
+}
+
+
+public String getDescription() { return description;
+}
+
+
+public double getAmount() { return amount;
+}
+
+
+public Date getDate() { return date;
+}
+
+
+public double getBalance() { return balance;
+}
+public String getCategory() { return category;
+}
+}
+
+
+public class ManagementSystemGUI {
+private static FinanceManager financeManager = new FinanceManager();
+
+
+public static void main(String[] args) { javax.swing.SwingUtilities.invokeLater(() -> createAndShowGUI());
+ 
+}
+
+
+private static void createAndShowGUI() {
+JFrame frame = new JFrame("Finance Management System"); frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+JPanel mainPanel = new JPanel(); mainPanel.setLayout(new GridLayout(5, 1));
+
+JButton addIncomeButton = new JButton("Add Income"); JButton addExpenseButton = new JButton("Add Expense"); JButton viewLedgerButton = new JButton("View Ledger");
+JButton generateReportButton = new JButton("Generate Category-wise Report");
+JButton exitButton = new JButton("Exit");
+
+
+addIncomeButton.addActionListener(new ActionListener() { @Override
+public void actionPerformed(ActionEvent e) { showAddTransactionDialog(true);
+}
+});
+
+
+addExpenseButton.addActionListener(new ActionListener() { @Override
+public void actionPerformed(ActionEvent e) { showAddTransactionDialog(false);
+}
+});
+ 
+
+viewLedgerButton.addActionListener(new ActionListener() { @Override
+public void actionPerformed(ActionEvent e) { financeManager.displayLedger();
+}
+});
+
+
+generateReportButton.addActionListener(new ActionListener() { @Override
+public void actionPerformed(ActionEvent e) { financeManager.generateCategoryReport();
+}
+});
+
+
+exitButton.addActionListener(new ActionListener() { @Override
+public void actionPerformed(ActionEvent e) { System.exit(0);
+}
+});
+
+
+mainPanel.add(addIncomeButton); mainPanel.add(addExpenseButton); mainPanel.add(viewLedgerButton); mainPanel.add(generateReportButton); mainPanel.add(exitButton);
+
+frame.getContentPane().add(BorderLayout.CENTER, mainPanel);
+ 
+frame.setSize(400, 250); frame.setVisible(true);
+}
+
+
+private static void showAddTransactionDialog(boolean isIncome) {
+JFrame addTransactionFrame = new JFrame(isIncome ? "Add Income" : "Add Expense");
+
+addTransactionFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOS E);
+
+
+JPanel panel = new JPanel(); panel.setLayout(new GridLayout(4, 2));
+
+JTextField descriptionField = new JTextField(); JTextField amountField = new JTextField(); JTextField categoryField = new JTextField();
+JButton addButton = new JButton(isIncome ? "Add Income" : "Add Expense");
+
+
+addButton.addActionListener(new ActionListener() { @Override
+public void actionPerformed(ActionEvent e) { try {
+String description = descriptionField.getText();
+double amount = Double.parseDouble(amountField.getText()); String category = categoryField.getText();
+Date date = new Date(); // current date
+ 
+financeManager.addTransaction(description, amount, category, date, isIncome);
+JOptionPane.showMessageDialog(null,	"Transaction	added successfully!");
+addTransactionFrame.dispose();
+} catch (NumberFormatException ex) {
+JOptionPane.showMessageDialog(null, "Invalid amount. Please enter a valid number.");
+}
+}
+});
+
+
+panel.add(new JLabel("Description:")); panel.add(descriptionField); panel.add(new JLabel("Amount:")); panel.add(amountField); panel.add(new JLabel("Category:")); panel.add(categoryField);
+panel.add(new JLabel("")); // Empty label for spacing panel.add(addButton);
+
+addTransactionFrame.getContentPane().add(BorderLayout.CENTER, panel);
+addTransactionFrame.setSize(300, 150); addTransactionFrame.setVisible(true);
+}
+}
